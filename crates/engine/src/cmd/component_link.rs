@@ -27,7 +27,7 @@ pub static COMMANDS: &[CommandSpec] = &[
     CommandSpec::new("component.insert_design", "Insert Design", insert_design).at("SOLID", "ASSEMBLE").icon("component").params(
         "path: a .solidcraft design → a new component linked to it, holding its solid bodies as placed in that design; \
          name? (default: the design's name); parent?: component id or name (default: the active one); translate?: [x,y,z]; \
-         reuse?: bool (default false): insert another occurrence of an existing link to the same file",
+         reuse?: bool (default false): insert a free occurrence, reusing an existing link to the same file when available",
     ),
     CommandSpec::new("component.update_links", "Update Links", update_links).icon("update").params(
         "component?: id or name (default: every linked component) — reads the linked designs again and replaces their bodies where they changed",
@@ -182,6 +182,10 @@ fn insert_design(s: &mut Session, p: &Value) -> Result<Value> {
     let (design_name, sf) = linked_bodies(&file, s.path.as_deref())?;
     let name = str_(p, "name").filter(|n| !n.trim().is_empty()).map(str::to_string).unwrap_or(design_name);
     let mut create = json!({"name": name, "activate": false});
+    // Clipboard insertion uses reuse even for the first paste, which must stay movable.
+    if p.get("reuse").and_then(Value::as_bool).unwrap_or(false) {
+        create["grounded"] = json!(false);
+    }
     if let Some(parent) = p.get("parent") {
         create["parent"] = parent.clone();
     }

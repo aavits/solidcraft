@@ -758,7 +758,7 @@ mod tests {
         let mut s = Session::default();
         run(&mut s, "parameters.add", json!({"name": "plate_h", "expression": "12 mm"}));
         run(&mut s, "parameters.add", json!({"name": "unused", "expression": "3 mm"}));
-        let plate = run(&mut s, "component.create", json!({"name": "Plate"}));
+        let plate = run(&mut s, "component.create", json!({"name": "Plate", "grounded": false}));
         let (plate, plate_occ) = (plate["component"].as_u64().unwrap(), plate["occurrence"].as_u64().unwrap());
         run(&mut s, "solid.box", json!({"length": 40, "width": 30, "height": "plate_h", "body_name": "PlateBody"}));
         let pin = run(&mut s, "component.create", json!({"name": "Pin", "parent": plate}));
