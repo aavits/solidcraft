@@ -231,6 +231,7 @@ pub mod theme_files;
 mod thin_extrude_tests;
 pub mod timeline;
 pub mod timeline_left;
+pub mod title_selectors;
 pub mod titlebar;
 pub mod tool_modifiers;
 pub mod toolbar;
@@ -277,6 +278,9 @@ pub struct UiState {
     pub pick_off: Vec<String>,
     /// A click on a face picks its whole body.
     pub pick_bodies: bool,
+    /// Selection priority from the title bar: what a click on a face picks
+    /// (`title_selectors::level` reads it together with `pick_bodies`).
+    pub pick_level: title_selectors::PickLevel,
     /// 0: shaded with edges, 1: shaded, 2: wireframe, 3: shaded with hidden edges.
     pub visual_style: u8,
     /// A soft shadow on the ground under the model (seen from above).
@@ -309,6 +313,7 @@ impl Default for UiState {
             dark: true,
             pick_off: Vec::new(),
             pick_bodies: false,
+            pick_level: Default::default(),
             visual_style: 0,
             ground_shadow: true,
             up_axis: Default::default(),
@@ -656,6 +661,7 @@ impl SolveApp {
             "grid": self.ui.show_grid,
             "perspective": self.ui.perspective,
             "pick_bodies": self.ui.pick_bodies,
+            "pick_level": self.ui.pick_level,
             "auto_project": self.session.auto_project,
             "visual_style": self.ui.visual_style,
             "browser_collapsed": self.tree.collapsed,
@@ -689,6 +695,9 @@ impl SolveApp {
         }
         if let Some(b) = flag("pick_bodies") {
             self.ui.pick_bodies = b;
+        }
+        if let Some(l) = v.get("pick_level").and_then(|l| serde_json::from_value(l.clone()).ok()) {
+            self.ui.pick_level = l;
         }
         if let Some(a) = flag("auto_project") {
             self.session.auto_project = a;

@@ -26,7 +26,9 @@ pub(super) fn show(app: &mut SolveApp, ui: &mut egui::Ui) {
         ));
     });
     ui_kit::settings_section(ui, "selection", app.tr("prefs.selecting"), |ui| {
-        ui_kit::checkbox(ui, crate::i18n::tr_label("Click selects whole bodies"), &mut app.ui.pick_bodies);
+        if ui_kit::checkbox(ui, crate::i18n::tr_label("Click selects whole bodies"), &mut app.ui.pick_bodies).changed() {
+            app.ui.pick_level = crate::title_selectors::PickLevel::Geometry;
+        }
         let click = app.tr("prefs.click");
         let shift = app.tr("prefs.shift");
         let ctrl = app.tr("prefs.ctrl_cmd");

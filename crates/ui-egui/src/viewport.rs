@@ -1954,13 +1954,15 @@ pub fn candidates(app: &SolveApp, hits: &[Hit]) -> Vec<(Hit, Sel)> {
 /// What the selection filter lets a click pick with no dialog.
 fn pick_allowed(app: &SolveApp, h: &Hit) -> bool {
     let off = |k: &str| app.ui.pick_off.iter().any(|x| x == k);
+    // A whole-object priority (body, feature, part, component) picks through faces only.
+    let whole = crate::title_selectors::picks_whole(app);
     match h {
         Hit::SketchCurve { .. } => !off("sketch") && !off("sketch_curves"),
         Hit::SketchPoint { .. } => !off("sketch") && !off("sketch_points"),
         Hit::Profile { .. } => !off("sketch"),
-        Hit::Vertex { .. } => !off("vertices") && !app.ui.pick_bodies,
-        Hit::Edge { .. } => !off("edges") && !app.ui.pick_bodies,
-        Hit::Face { .. } => !off("faces") || app.ui.pick_bodies,
+        Hit::Vertex { .. } => !off("vertices") && !whole,
+        Hit::Edge { .. } => !off("edges") && !whole,
+        Hit::Face { .. } => !off("faces") || whole,
         Hit::Plane { .. } | Hit::Axis { .. } => true,
     }
 }
@@ -1974,7 +1976,9 @@ fn hit_candidate(app: &SolveApp, h: &Hit) -> Option<(Hit, Sel)> {
         Hit::SketchPoint { sketch, id, .. } if app.session.active_sketch != Some(*sketch) => {
             Some((h.clone(), Sel::ExternalSketchPoint { sketch: *sketch, id: id.clone() }))
         }
-        Hit::Face { body, .. } if app.ui.pick_bodies => Some((h.clone(), Sel::Body { name: body.clone() })),
+        Hit::Face { body, index, .. } if crate::title_selectors::picks_whole(app) => {
+            crate::title_selectors::face_pick(app, body, *index).map(|s| (h.clone(), s))
+        }
         _ => hit_sel(h).map(|s| (h.clone(), s)),
     }
 }
@@ -2143,6 +2147,7 @@ fn highlight_geometry_key(app: &SolveApp) -> u64 {
     app.session.active_occurrence_path.hash(&mut h);
     app.ui.visual_style.hash(&mut h);
     app.ui.pick_bodies.hash(&mut h);
+    app.ui.pick_level.hash(&mut h);
     app.session.active_sketch.hash(&mut h);
     (app.dialog.is_some(), app.tool.is_some()).hash(&mut h);
     crate::theme::is_dark().hash(&mut h);
@@ -2388,16 +2393,32 @@ pub(crate) fn build_highlight(app: &SolveApp) -> GpuScene {
     }
     // Hover (pre-highlight).
     match hover {
-        // Body selection: the whole body lights up.
-        Some(Hit::Face { body, .. }) if app.ui.pick_bodies && app.dialog.is_none() && app.tool.is_none() => {
-            if let Some(b) = st.body(body) {
-                let k = t.hover_face_lift;
-                let c = body_rgb(app, body);
+        // Whole-object selection: what the click would pick lights up (a body, every body of a
+        // part or component, or the faces a feature made).
+        Some(Hit::Face { body, index, .. }) if crate::title_selectors::picks_whole(app) && app.dialog.is_none() && app.tool.is_none() => {
+            let picked = crate::title_selectors::face_pick(app, body, *index).map(|s| displayed_selection(app, &s)).unwrap_or_default();
+            let k = t.hover_face_lift;
+            for item in &picked {
+                let (name, face) = match item {
+                    Sel::Body { name } => (name, None),
+                    Sel::Face { body, index, .. } => (body, Some(*index)),
+                    _ => continue,
+                };
+                let Some(b) = st.body(name) else { continue };
+                let c = body_rgb(app, name);
+                let lift = [c.0.saturating_add(k), c.1.saturating_add(k), c.2.saturating_add(k), 255];
                 let m = shown(b);
-                let count = b.body.face_count();
-                mesh_tris(&mut feedback, &m, [c.0.saturating_add(k), c.1.saturating_add(k), c.2.saturating_add(k), 255], true, |f| {
-                    (f as usize) < count
-                });
+                match face {
+                    None => {
+                        let count = b.body.face_count();
+                        mesh_tris(&mut feedback, &m, lift, true, |f| (f as usize) < count);
+                    }
+                    Some(i) => {
+                        for &f in &drawn_mesh(app, b).surface_patch(i) {
+                            face_tris(&mut feedback, &m, f, lift, true);
+                        }
+                    }
+                }
             }
         }
         Some(Hit::Face { body, index, .. })

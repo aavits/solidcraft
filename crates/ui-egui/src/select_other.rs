@@ -467,6 +467,7 @@ fn cycle_key(app: &SolveApp) -> u64 {
     app.session.active_sketch.hash(&mut h);
     app.ui.pick_off.hash(&mut h);
     app.ui.pick_bodies.hash(&mut h);
+    app.ui.pick_level.hash(&mut h);
     app.dialog.is_some().hash(&mut h);
     h.finish()
 }

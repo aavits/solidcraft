@@ -384,6 +384,13 @@ pub fn app_bar(app: &mut SolveApp, ui: &mut egui::Ui) {
                 let _ = app.run("edit.redo", json!({}));
             }
             x += step;
+            // Selection priority and projection, between the file actions and the documents.
+            if shown && r.width() >= crate::title_selectors::SHOWN_FROM {
+                let at = x - step + 24.0;
+                app_bar_separator(ui, r, at, "selectors");
+                let end = crate::title_selectors::show(app, ui, r, at + 8.0, r.width() >= crate::title_selectors::LABELED_FROM);
+                x = end + step - 16.0;
+            }
         }
         if file {
             app.ui.palette_open = false;
@@ -1783,7 +1790,10 @@ fn drag_ghost(ctx: &egui::Context, id: &str, at: egui::Pos2, removing: bool) {
 pub(crate) fn selection_filter(app: &mut SolveApp, ui: &mut egui::Ui) {
     let t = Tokens::get();
     ui.label(egui::RichText::new(crate::i18n::tr_label("Selection filter")).color(t.text_dim).size(t.font_small));
-    crate::ui_kit::checkbox(ui, crate::i18n::tr_label("Select bodies (a face picks its body)"), &mut app.ui.pick_bodies);
+    if crate::ui_kit::checkbox(ui, crate::i18n::tr_label("Select bodies (a face picks its body)"), &mut app.ui.pick_bodies).changed() {
+        // The box is the Bodies priority: leaving it returns to faces and edges.
+        app.ui.pick_level = crate::title_selectors::PickLevel::Geometry;
+    }
     for (k, label) in [
         ("faces", "Faces"),
         ("edges", "Edges"),
