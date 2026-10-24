@@ -685,6 +685,7 @@ impl Session {
     /// which keeps every result and mesh (#3044).
     fn refresh_from(&mut self, previous: &Arc<Document>) {
         self.follow_plane_renames(previous);
+        self.follow_axis_point_renames(previous);
         if let Some((old, new)) = self.body_rename(previous)
             && self.model.rename_body(&self.doc, &old, &new)
         {
